@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: water-system
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://82.157.201.105:3306/water_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:remote_user}
+    password: ${DB_PASSWORD:Liuyijun123...}
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.qingyuan.water.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  jwt-secret: ${JWT_SECRET:QingYuanWaterSystem2026GraduationProjectSecret}
+  jwt-expiration-hours: 168

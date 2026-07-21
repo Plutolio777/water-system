@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qingyuan.water.mapper.WaterMapper">
+    <select id="findStations" resultType="Station">
+        SELECT s.*, COALESCE(SUM(d.current_power), 0) current_power,
+               (SELECT COALESCE(SUM(g.generation),0) FROM generation_record g WHERE g.station_id=s.id AND g.record_date=CURDATE()) today_generation,
+               (SELECT m.water_level FROM monitoring_record m WHERE m.station_id=s.id ORDER BY m.recorded_at DESC LIMIT 1) water_level,
+               (SELECT m.flow_rate FROM monitoring_record m WHERE m.station_id=s.id ORDER BY m.recorded_at DESC LIMIT 1) inflow
+        FROM station s LEFT JOIN device d ON s.id=d.station_id AND d.device_type='GENERATOR'
+        GROUP BY s.id ORDER BY s.id
+    </select>
+    <select id="findDevices" resultType="Device">
+        SELECT d.*, s.station_name FROM device d JOIN station s ON s.id=d.station_id
+        <where><if test="stationId != null">d.station_id=#{stationId}</if></where>
+        ORDER BY d.station_id, d.id
+    </select>
+    <select id="findMonitoring" resultType="MonitoringRecord">
+        SELECT m.* FROM monitoring_record m
+        <where><if test="stationId != null">m.station_id=#{stationId}</if></where>
+        ORDER BY m.recorded_at ASC
+    </select>
+    <select id="findGeneration" resultType="GenerationRecord">
+        SELECT g.*, s.station_name FROM generation_record g JOIN station s ON s.id=g.station_id
+        WHERE g.record_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        ORDER BY g.record_date ASC, g.station_id
+    </select>
+    <select id="findMonthlyGeneration" resultType="map">
+        SELECT DATE_FORMAT(record_date,'%Y-%m') month, ROUND(SUM(generation),1) generation, ROUND(SUM(plan_generation),1) plan
+        FROM generation_record GROUP BY DATE_FORMAT(record_date,'%Y-%m') ORDER BY month
+    </select>
+    <select id="findStationRanking" resultType="map">
+        SELECT s.station_name stationName, ROUND(SUM(g.generation),1) generation,
+               ROUND((SUM(g.generation)/SUM(g.plan_generation)-1)*100,1) yoy
+        FROM station s JOIN generation_record g ON s.id=g.station_id GROUP BY s.id ORDER BY generation DESC
+    </select>
+    <select id="findAlarms" resultType="Alarm">
+        SELECT a.*, s.station_name, d.device_name FROM alarm a
+        JOIN station s ON s.id=a.station_id LEFT JOIN device d ON d.id=a.device_id
+        ORDER BY FIELD(a.status,'ACTIVE','RESOLVED'), a.occurred_at DESC
+    </select>
+    <update id="resolveAlarm">
+        UPDATE alarm SET status='RESOLVED', handler=#{handler}, handled_at=NOW() WHERE id=#{id}
+    </update>
+    <select id="findWorkOrders" resultType="WorkOrder">
+        SELECT w.*, s.station_name, d.device_name FROM work_order w
+        JOIN station s ON s.id=w.station_id LEFT JOIN device d ON d.id=w.device_id
+        ORDER BY FIELD(w.status,'PROCESSING','PENDING','COMPLETED'), w.created_at DESC
+    </select>
+    <insert id="insertWorkOrder" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO work_order(order_code, station_id, device_id, title, description, owner, priority, status, due_date)
+        VALUES(#{orderCode},#{stationId},#{deviceId},#{title},#{description},#{owner},#{priority},#{status},#{dueDate})
+    </insert>
+    <select id="findOverviewMetrics" resultType="map">
+        SELECT ROUND((SELECT SUM(current_power) FROM device WHERE device_type='GENERATOR'),2) currentPower,
+               (SELECT SUM(installed_capacity) FROM station) installedCapacity,
+               ROUND((SELECT SUM(generation) FROM generation_record WHERE record_date=CURDATE()),1) todayGeneration,
+               ROUND((SELECT SUM(generation) FROM generation_record WHERE DATE_FORMAT(record_date,'%Y-%m')=DATE_FORMAT(CURDATE(),'%Y-%m')),1) monthGeneration,
+               ROUND((SELECT SUM(generation) FROM generation_record WHERE YEAR(record_date)=YEAR(CURDATE())),1) yearGeneration,
+               (SELECT COUNT(*) FROM alarm WHERE status='ACTIVE') activeAlarms,
+               ROUND((SELECT SUM(status IN ('RUNNING','ONLINE'))/COUNT(*)*100 FROM device),1) onlineRate
+    </select>
+</mapper>

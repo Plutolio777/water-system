@@ -1,0 +1,6 @@
+export interface User { id: number; username: string; realName: string; role: string; phone: string }
+export interface Station { id: number; stationCode: string; stationName: string; riverName: string; installedCapacity: number; unitCount: number; status: string; manager: string; longitude: number; latitude: number; address: string; currentPower: number; todayGeneration: number; waterLevel: number; inflow: number }
+export interface Device { id: number; stationId: number; stationName: string; deviceCode: string; deviceName: string; deviceType: string; model: string; status: string; ratedPower: number; currentPower: number; runningHours: number; nextMaintenanceDate: string }
+export interface Alarm { id: number; alarmCode: string; stationId: number; stationName: string; deviceId: number; deviceName: string; level: string; title: string; currentValue: string; thresholdValue: string; status: string; handler?: string; occurredAt: string; handledAt?: string }
+export interface WorkOrder { id: number; orderCode: string; stationId: number; stationName: string; deviceId: number; deviceName: string; title: string; description: string; owner: string; priority: string; status: string; dueDate: string; createdAt: string }
+export interface SeriesPoint { time: string; power: number; flow: number; head: number; efficiency: number }
